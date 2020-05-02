@@ -1,0 +1,129 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include <math.h>          
+#include <malloc.h>
+
+typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned int DWORD;
+typedef unsigned long	LDWORD;
+typedef long LONG;
+ 
+#pragma pack(1)	//让结构体中各成员按1字节对齐
+typedef struct tagBITMAPFILEHEADER
+{
+	WORD     bfType;     	//保存图片类型。 'BM'
+	DWORD    bfSize; 		//位图文件的大小，以字节为单位
+	WORD     bfReserved1;	//位图文件保留字，必须为0
+	WORD     bfReserved2;	//位图文件保留字，必须为0 
+	DWORD    bfOffBits;   	//RGB数据偏移地址,位图数据的起始位置，以相对于位图
+}BITMAPFILEHEADER;
+ 
+typedef struct tagBITMAPINFOHEADER
+{
+	DWORD 	biSize;				//本结构所占用字节数
+	DWORD 	biWidth;			//位图的宽度，以像素为单位
+	DWORD 	biHeight;			//位图的高度，以像素为单位
+	WORD 	biPlanes;	    	//平面数，为1  
+	WORD 	biBitCount;			//每个像素所需的位数
+	DWORD 	biCompression;		//压缩方式，可以是0，1，2，其中0表示不压缩
+	DWORD 	biSizeImage;		//位图的大小(其中包含了为了补齐行数是4的倍数而添加的空字节)，以字节为单位
+	DWORD 	biXPelsPerMeter;	//位图水平分辨率，每米像素数
+	DWORD 	biYPelsPerMeter;	//位图垂直分辨率，每米像素数
+	DWORD 	biClrUsed;			//位图实际使用的颜色表中的颜色数
+	DWORD 	biClrImportant;		//位图显示过程中重要的颜色数
+}BITMAPINFOHEADER;
+ 
+
+int Bmp_change(const char* old_bmp_path,const char* new_bmp_path)
+{
+ 
+//定义原照片信息结构体
+ BITMAPFILEHEADER head;
+ BITMAPINFOHEADER info;
+ 
+//将结构体清空
+ memset(&head,0,sizeof(BITMAPFILEHEADER));
+ memset(&info,0,sizeof(BITMAPINFOHEADER));
+ 
+ FILE *fpr1=fopen(old_bmp_path,"rb");
+ FILE *fpw2=fopen(new_bmp_path,"wb");
+ 
+ if(fpr1==NULL||fpw2==NULL)
+ {
+  printf("图片打开失败!\n");
+  return -1;
+ }
+ 
+//读取原照片的头信息
+ fread(&head,sizeof(BITMAPFILEHEADER),1,fpr1);
+ fread(&info,sizeof(BITMAPINFOHEADER),1,fpr1);
+ 
+ unsigned int old_width=info.biWidth;		//获取原图片的宽
+ unsigned int old_height=info.biHeight;		//获取原图片的高
+ 
+//获取原图片的位图数据
+ unsigned char *src_data=(unsigned char*)malloc(old_width*old_height*3);
+ fseek(fpr1,54,SEEK_SET);
+ fread(src_data,old_width*old_height*3,1,fpr1);
+ 
+ printf("原图片的宽:%d\n",old_width);
+ printf("原图片的高:%d\n",old_height);
+ 
+//修改原照片的宽高
+ unsigned int new_Width,new_Height;
+ printf("请输入新图片的宽:\n");
+ scanf("%d",&new_Width);
+ printf("请输入新图片的高:\n");
+ scanf("%d",&new_Height);
+ 
+ 
+ head.bfSize=new_Width*new_Height*3+54;
+ info.biWidth=new_Width;
+ info.biHeight=new_Height;
+ 
+ //将修改过的头信息写进新照片
+ fwrite(&head,sizeof(BITMAPFILEHEADER),1,fpw2);
+ fwrite(&info,sizeof(BITMAPINFOHEADER),1,fpw2);
+ 
+
+ unsigned long dwsrcX,dwsrcY;
+ unsigned char *pucDest;
+ unsigned char *pucSrc;
+ unsigned char *dest_data=(unsigned char*)malloc(new_Width*new_Height*3);
+
+ for(int i=0;i<new_Height;i++)
+ {
+	dwsrcY=i*old_height/new_Height;
+	pucDest=dest_data+i*new_Width*3;
+	pucSrc=src_data+dwsrcY*old_width*3;
+	
+	for(int j=0;j<new_Width;j++)
+	{
+		dwsrcX=j*old_width/new_Width;
+		memcpy(pucDest+j*3,pucSrc+dwsrcX*3,3);//数据拷贝
+	}
+ }
+ 
+
+ fwrite(dest_data,new_Width*new_Height*3,1,fpw2);
+ printf("生成新图片成功!\n");
+ 
+ //释放内存空间
+ free(dest_data);
+ free(src_data);
+ 
+ //关闭文件
+ fclose(fpr1);
+ fclose(fpw2);
+ 
+return 0;
+}
+ 
+
+int main()
+{
+ Bmp_change("input.bmp","new_scale.bmp");
+ return 0; 
+}
